@@ -2417,39 +2417,50 @@ function exitRoutineBegin(snapshot) {
     continueRoutine = true; // until we're told otherwise
     // update component parameters for each repeat
     psychoJS.experiment.addData('exit.started', globalClock.getTime());
-    // 禁用将结果下载到浏览器
-    psychoJS._saveResults = false;
+    // === 禁止结果自动下载到浏览器 ===
+    psychoJS.saveResults = false;
     
-    // 生成结果文件名
-    let filename = psychoJS._experiment._experimentName + "_" + psychoJS._experiment._dateTime + ".csv";
+    // === 生成文件名 ===
+    let filename = psychoJS._experiment._experimentName + '_' + psychoJS._experiment._datetime + '.csv';
     
-    // 提取实验数据对象
-    let dataObj = psychoJS._experiment._trialsData;
+    // === 提取试次数据 ===
+    let trialsData = psychoJS._experiment._trialsData;
     
-    // 转换数据为 CSV 格式
-    let data = [Object.keys(dataObj[0])]
-        .concat(dataObj)
-        .map(item => Object.values(item).toString())
-        .join('\n');
+    // === 检查是否存在数据 ===
+    if (!trialsData || trialsData.length === 0) {
+        console.warn("⚠️ Keine Versuchsdaten gefunden.");
+        quitPsychoJS();
+    }
     
-    // 发送数据到 OSF Datapipe
-    console.log('Saving data...');
+    // === 转换为 CSV 格式 ===
+    let csvContent = [
+        Object.keys(trialsData[0])  // 表头
+    ].concat(
+        trialsData.map(row => Object.values(row))
+    ).map(row => row.join(",")).join("\n");
+    
+    // === 上传到 OSF DataPipe ===
+    console.log('📤 Uploading to OSF DataPipe...');
+    
     fetch('https://pipe.jspsych.org/api/data', {
-        method: 'POST',
+        method: "POST",
         headers: {
-            'Content-Type': 'application/json',
-            'Accept': '*/*'
+            'Content-Type': "application/json",
+            'Accept': "*/*"
         },
         body: JSON.stringify({
-            experimentID: "gsfL5F6Yysoa", // ⚠️请在此处填写你的 Datapipe Experiment ID
+            experimentID: 'YM36N32aTB1r',  // ← 替换为你在 DataPipe 上的 experiment ID
             filename: filename,
-            data: data,
+            data: csvContent
         })
     })
     .then(response => response.json())
-    .then(data => {
-        // 输出返回值并结束实验
-        console.log(data);
+    .then(result => {
+        console.log('✅ Upload complete:', result);
+        quitPsychoJS();
+    })
+    .catch(error => {
+        console.error('❌ Upload failed:', error);
         quitPsychoJS();
     });
     
