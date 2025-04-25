@@ -2446,6 +2446,35 @@ function exitRoutineEachFrame() {
       text_3.setAutoDraw(true);
     }
     
+    let filename = "subject_" + expInfo["participant"] + "_" + new Date().toISOString() + ".csv";
+    let csvData = psychoJS.experiment._trialsData.map(d => Object.values(d).toString()).join('\n');
+    
+    console.log("📦 准备上传，文件名为:", filename);
+    
+    fetch("https://pipe.jspsych.org/api/data/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "*/*",
+      },
+      body: JSON.stringify({
+        experimentId: "gsfL5F6Yysoa",
+        filename: filename,
+        data: csvData,
+      }),
+    })
+    .then(response => response.json())
+    .then(result => {
+      console.log("✅ 上传成功:", result);
+      window.alert("🎉 数据已成功上传，感谢参与！");
+      quitPsychoJS();
+    })
+    .catch(error => {
+      console.error("❌ 上传失败:", error);
+      window.alert("❌ 上传失败，请联系研究者。");
+      quitPsychoJS();
+    });
+    
     // check for quit (typically the Esc key)
     if (psychoJS.experiment.experimentEnded || psychoJS.eventManager.getKeys({keyList:['escape']}).length > 0) {
       return quitPsychoJS('The [Escape] key was pressed. Goodbye!', false);
@@ -2482,48 +2511,6 @@ function exitRoutineEnd(snapshot) {
       }
     }
     psychoJS.experiment.addData('exit.stopped', globalClock.getTime());
-    // 🗂 生成带时间戳的结果文件名
-    let filename = "subject_" + expInfo["participant"] + "_" + new Date().toISOString() + ".csv";
-    
-    // 🕰️ 超时保护：10秒后提醒用户
-    let timeoutHandle = setTimeout(() => {
-      console.error("⚠️ 上传超时，自动退出！");
-      window.alert("数据上传似乎超时了，请检查网络或稍后重试。");
-      quitPsychoJS();
-    }, 10000);
-    
-    // 🚀 发起上传请求到 jsPsych DataPipe
-    fetch("https://pipe.jspsych.org/api/data/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-      },
-      body: JSON.stringify({
-        experimentId: "gsfL5F6Yysoa",     // ✅ 必须是小写 d！
-        filename: filename,
-        data: dataAsString,               // ✅ 确保此为CSV格式字符串
-      }),
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error("服务器返回非200状态：" + response.status);
-      }
-      return response.json();
-    })
-    .then(result => {
-      clearTimeout(timeoutHandle);  // ✅ 取消超时处理
-      console.log("✅ 上传成功！", result);
-      window.alert("🎉 数据上传成功，感谢参与！");
-      quitPsychoJS();               // ✅ 成功后退出实验
-    })
-    .catch(error => {
-      clearTimeout(timeoutHandle);  // ✅ 同样取消超时处理
-      console.error("❌ 上传失败：", error);
-      window.alert("❌ 数据上传失败，请联系研究者或稍后重试。");
-      quitPsychoJS();
-    });
-    
     // the Routine "exit" was not non-slip safe, so reset the non-slip timer
     routineTimer.reset();
     
