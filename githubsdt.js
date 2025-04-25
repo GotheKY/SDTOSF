@@ -2446,35 +2446,6 @@ function exitRoutineEachFrame() {
       text_3.setAutoDraw(true);
     }
     
-    let filename = "subject_" + expInfo["participant"] + "_" + new Date().toISOString() + ".csv";
-    let csvData = psychoJS.experiment._trialsData.map(d => Object.values(d).toString()).join('\n');
-    
-    console.log("📦 准备上传，文件名为:", filename);
-    
-    fetch("https://pipe.jspsych.org/api/data/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-      },
-      body: JSON.stringify({
-        experimentId: "gsfL5F6Yysoa",
-        filename: filename,
-        data: csvData,
-      }),
-    })
-    .then(response => response.json())
-    .then(result => {
-      console.log("✅ 上传成功:", result);
-      window.alert("🎉 数据已成功上传，感谢参与！");
-      quitPsychoJS();
-    })
-    .catch(error => {
-      console.error("❌ 上传失败:", error);
-      window.alert("❌ 上传失败，请联系研究者。");
-      quitPsychoJS();
-    });
-    
     // check for quit (typically the Esc key)
     if (psychoJS.experiment.experimentEnded || psychoJS.eventManager.getKeys({keyList:['escape']}).length > 0) {
       return quitPsychoJS('The [Escape] key was pressed. Goodbye!', false);
@@ -2511,6 +2482,42 @@ function exitRoutineEnd(snapshot) {
       }
     }
     psychoJS.experiment.addData('exit.stopped', globalClock.getTime());
+    // 禁用将结果下载到浏览器
+    psychoJS._saveResults = false;
+    
+    // 生成结果文件名
+    let filename = psychoJS._experiment._experimentName + "_" + psychoJS._experiment._dateTime + ".csv";
+    
+    // 提取实验数据对象
+    let dataObj = psychoJS._experiment._trialsData;
+    
+    // 转换数据为 CSV 格式
+    let data = [Object.keys(dataObj[0])]
+        .concat(dataObj)
+        .map(item => Object.values(item).toString())
+        .join('\n');
+    
+    // 发送数据到 OSF Datapipe
+    console.log('Saving data...');
+    fetch('https://pipe.jspsych.org/api/data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': '*/*'
+        },
+        body: JSON.stringify({
+            experimentID: "gsfL5F6Yysoa", // ⚠️请在此处填写你的 Datapipe Experiment ID
+            filename: filename,
+            data: data,
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 输出返回值并结束实验
+        console.log(data);
+        quitPsychoJS();
+    });
+    
     // the Routine "exit" was not non-slip safe, so reset the non-slip timer
     routineTimer.reset();
     
