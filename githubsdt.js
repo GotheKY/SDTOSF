@@ -2417,54 +2417,35 @@ function exitRoutineBegin(snapshot) {
     frameN = -1;
     continueRoutine = true; // until we're told otherwise
     // update component parameters for each repeat
-    psychoJS.experiment.addData('exit.started', globalClock.getTime());
-    // === 禁止结果自动下载到浏览器 ===
-    psychoJS.saveResults = false;
+    if (!psychoJS._uploadDone) {         // 只执行一次
+      psychoJS.experiment.save({         // ① 生成完整 CSV
+        format   : 'csv',
+        saveData : false                 // 不自动下载
+      }).then(csv => {
     
-    // === 生成文件名 ===
-    let filename = psychoJS._experiment._experimentName + '_' + psychoJS._experiment._datetime + '.csv';
+        // ② 上传到 Datapipe
+        const filename = `${psychoJS.experiment._experimentName}_${psychoJS.experiment._dateTime}.csv`;
     
-    // === 提取试次数据 ===
-    let trialsData = psychoJS._experiment._trialsData;
-    
-    // === 检查是否存在数据 ===
-    if (!trialsData || trialsData.length === 0) {
-        console.warn("⚠️ Keine Versuchsdaten gefunden.");
-        quitPsychoJS();
+        return fetch('https://pipe.jspsych.org/api/data', {
+          method : 'POST',
+          headers: {'Content-Type':'application/json','Accept':'*/*'},
+          body   : JSON.stringify({
+            experimentID : 'XXXXXXXXXXXX',   // ← 换成自己的
+            filename     : filename,
+            data         : csv
+          })
+        });
+      })
+      .then(r => r.json())
+      .then(r => {
+        console.log('✅ Datapipe 上传成功:', r);
+        psychoJS._uploadDone = true;     // 标记完成
+      })
+      .catch(err => {
+        console.error('❌ 上传失败:', err);
+        psychoJS._uploadDone = true;     // 即使失败也别卡死
+      });
     }
-    
-    // === 转换为 CSV 格式 ===
-    let csvContent = [
-        Object.keys(trialsData[0])  // 表头
-    ].concat(
-        trialsData.map(row => Object.values(row))
-    ).map(row => row.join(",")).join("\n");
-    
-    // === 上传到 OSF DataPipe ===
-    console.log('📤 Uploading to OSF DataPipe...');
-    
-    fetch('https://pipe.jspsych.org/api/data', {
-        method: "POST",
-        headers: {
-            'Content-Type': "application/json",
-            'Accept': "*/*"
-        },
-        body: JSON.stringify({
-            experimentID: 'YM36N32aTB1r',  // ← 替换为你在 DataPipe 上的 experiment ID
-            filename: filename,
-            data: csvContent
-        })
-    })
-    .then(response => response.json())
-    .then(result => {
-        console.log('✅ Upload complete:', result);
-        quitPsychoJS();
-    })
-    .catch(error => {
-        console.error('❌ Upload failed:', error);
-        quitPsychoJS();
-    });
-    
     // keep track of which components have finished
     exitComponents = [];
     exitComponents.push(text_3);
@@ -2494,6 +2475,13 @@ function exitRoutineEachFrame() {
       text_3.setAutoDraw(true);
     }
     
+    /* -------- exit ▸ Each Frame -------- */
+    // 如果上传还没结束就一直停留在本 Routine
+    if (!psychoJS._uploadDone) {
+      return Scheduler.Event.FLIP_REPEAT;
+    } else {
+      return Scheduler.Event.NEXT;       // 完成后继续结束实验
+    }
     // check for quit (typically the Esc key)
     if (psychoJS.experiment.experimentEnded || psychoJS.eventManager.getKeys({keyList:['escape']}).length > 0) {
       return quitPsychoJS('The [Escape] key was pressed. Goodbye!', false);
@@ -2529,7 +2517,10 @@ function exitRoutineEnd(snapshot) {
         thisComponent.setAutoDraw(false);
       }
     }
-    psychoJS.experiment.addData('exit.stopped', globalClock.getTime());
+    // Datapipe 端看不到？在浏览器再打印一次
+    psychoJS.experiment.save({format:'csv',saveData:false})
+      .then(csv => console.table(csv.split('\n')[0].split(',')));
+    
     // the Routine "exit" was not non-slip safe, so reset the non-slip timer
     routineTimer.reset();
     
