@@ -95,6 +95,7 @@ psychoJS.start({
     {'name': 'condition.csv', 'path': 'condition.csv'},
     {'name': 'bank-1300155_640.png', 'path': 'bank-1300155_640.png'},
     {'name': 'ins.jpg', 'path': 'ins.jpg'},
+    {'name': 'condition.csv', 'path': 'condition.csv'},
     {'name': 'dots.js', 'path': 'dots.js'},
   ]
 });
